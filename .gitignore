@@ -1,0 +1,31 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+frontend/.env.local
+
+# Node.js and build output
+node_modules/
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/coverage/
+
+# Generated forensic uploads
+backend/uploads/
+uploads/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Frontend Git backup
+frontend/.git-backup/
