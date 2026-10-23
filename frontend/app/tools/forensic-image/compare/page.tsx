@@ -25,36 +25,42 @@ export default function ComparePage() {
 
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
-    side: "A" | "B"
+    side: "A" | "B",
   ) => {
     const file = e.target.files?.[0] || null;
-    if (file) {
-      const previewUrl = URL.createObjectURL(file);
-      if (side === "A") {
-        setFileA(file);
-        setPreviewA(previewUrl);
-        setResultA(null);
-      } else {
-        setFileB(file);
-        setPreviewB(previewUrl);
-        setResultB(null);
-      }
+
+    if (!file) return;
+
+    const previewUrl = URL.createObjectURL(file);
+
+    if (side === "A") {
+      setFileA(file);
+      setPreviewA(previewUrl);
+      setResultA(null);
+    } else {
+      setFileB(file);
+      setPreviewB(previewUrl);
+      setResultB(null);
     }
   };
 
   const analyzeOne = async (file: File): Promise<SingleResult> => {
     const formData = new FormData();
     formData.append("file", file);
+
     const res = await fetch("http://localhost:8000/analyze", {
       method: "POST",
       body: formData,
     });
+
     return res.json();
   };
 
   const handleCompare = async () => {
     if (!fileA || !fileB) return;
+
     setLoading(true);
+
     try {
       const [a, b] = await Promise.all([analyzeOne(fileA), analyzeOne(fileB)]);
       setResultA(a);
@@ -67,43 +73,73 @@ export default function ComparePage() {
   const renderDropzone = (
     side: "A" | "B",
     file: File | null,
-    preview: string | null
+    preview: string | null,
   ) => (
     <label
       htmlFor={`file-upload-${side}`}
-      className={`group block cursor-pointer border-2 border-dashed rounded-[12px] p-8 text-center transition-all duration-200 ${
+      className={`group block cursor-pointer rounded-2xl border border-dashed p-5 text-center transition-all duration-300 sm:p-7 ${
         file
-          ? "border-accent-blue/40 bg-accent-blue/[0.02]"
-          : "border-hairline-strong hover:border-ink/30"
+          ? "border-white/40 bg-white/[0.06]"
+          : "border-white/[0.2] bg-white/[0.025] hover:border-white/45 hover:bg-white/[0.05]"
       }`}
     >
       {preview ? (
-        <img
-          src={preview}
-          alt={`Preview ${side}`}
-          className="max-h-48 mx-auto rounded-md mb-2 object-contain"
-        />
+        <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-black/40 p-3">
+          <img
+            src={preview}
+            alt={`Preview ${side}`}
+            className="mx-auto max-h-64 w-full rounded-lg object-contain"
+          />
+
+          <div className="absolute inset-x-5 bottom-5 rounded-lg border border-white/[0.12] bg-black/75 px-3 py-2 text-left backdrop-blur-md">
+            <p className="truncate text-xs font-medium text-white">
+              {file?.name}
+            </p>
+            <p className="mt-1 text-[10px] text-white/45">
+              Click to replace image
+            </p>
+          </div>
+        </div>
       ) : (
-        <div className="flex flex-col items-center gap-1">
-          <svg
-            className="w-8 h-8 text-charcoal group-hover:text-ink transition-colors"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.5"
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-            />
-          </svg>
-          <p className="text-ink font-medium text-sm mt-1">
-            {file ? file.name : `Upload Image ${side}`}
+        <div className="flex min-h-[245px] flex-col items-center justify-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.14] bg-white/[0.05] text-white/65 transition-all group-hover:border-white/35 group-hover:bg-white group-hover:text-black">
+            <svg
+              width="25"
+              height="25"
+              viewBox="0 0 25 25"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M12.5 16V5M12.5 5L8 9.5M12.5 5L17 9.5"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M4 15.5V19C4 19.83 4.67 20.5 5.5 20.5H19.5C20.33 20.5 21 19.83 21 19V15.5"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+
+          <p className="mt-5 text-sm font-medium text-white">
+            Upload Image {side}
           </p>
-          <p className="text-mute text-xs">JPG, PNG</p>
+
+          <p className="mt-2 text-xs text-white/40">
+            Drop an image here or click to browse
+          </p>
+
+          <span className="mt-5 rounded-full border border-white/[0.14] px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-white/45">
+            JPG · JPEG · PNG
+          </span>
         </div>
       )}
+
       <input
         id={`file-upload-${side}`}
         type="file"
@@ -114,173 +150,314 @@ export default function ComparePage() {
     </label>
   );
 
-  const renderMetrics = (result: SingleResult, label: string) => (
-    <div className="mt-4 space-y-2 text-sm">
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-block w-1.5 h-1.5 rounded-full ${
-            result.error_level_analysis.jpeg_ghost.detected
-              ? "bg-accent-yellow"
-              : "bg-accent-green"
-          }`}
-        />
-        <span className="text-body">{result.error_level_analysis.jpeg_ghost.message}</span>
+  const renderMetrics = (result: SingleResult) => (
+    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      <div className="rounded-xl border border-white/[0.1] bg-white/[0.025] p-3">
+        <p className="text-[10px] uppercase tracking-[0.13em] text-white/35">
+          ELA status
+        </p>
+
+        <div className="mt-2 flex items-start gap-2">
+          <span
+            className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+              result.error_level_analysis.jpeg_ghost.detected
+                ? "bg-white/45"
+                : "bg-white"
+            }`}
+          />
+
+          <span className="text-xs leading-5 text-white/70">
+            {result.error_level_analysis.jpeg_ghost.message}
+          </span>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-mute">Mean error:</span>
-        <span className="text-ink font-mono">{result.error_level_analysis.mean_error}</span>
+
+      <div className="rounded-xl border border-white/[0.1] bg-white/[0.025] p-3">
+        <p className="text-[10px] uppercase tracking-[0.13em] text-white/35">
+          Mean error
+        </p>
+
+        <p className="mt-2 font-mono text-sm text-white/80">
+          {result.error_level_analysis.mean_error}
+        </p>
       </div>
     </div>
   );
 
   return (
-    <main className="min-h-screen bg-canvas text-ink px-6 py-16 md:px-8 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="text-center md:text-left mb-10">
-        <h1 className="font-display text-4xl md:text-5xl leading-[1.1] tracking-tight mb-3">
-          Compare Two Images
-        </h1>
-        <p className="text-body text-lg max-w-2xl mx-auto md:mx-0">
-          Upload two images and compare their ELA heatmaps, tampering signals, and metadata side-by-side.
-        </p>
-      </div>
+    <main className="min-h-screen overflow-hidden bg-black px-6 py-12 text-white sm:px-8 lg:px-12">
+      {/* Background grid */}
+      <div className="pointer-events-none fixed inset-0 opacity-[0.035] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:48px_48px]" />
 
-      {/* Upload Area */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-surface-card border border-hairline-strong rounded-[12px] p-6">
-          <h3 className="text-ink font-medium mb-3">Image A</h3>
-          {renderDropzone("A", fileA, previewA)}
-        </div>
-        <div className="bg-surface-card border border-hairline-strong rounded-[12px] p-6">
-          <h3 className="text-ink font-medium mb-3">Image B</h3>
-          {renderDropzone("B", fileB, previewB)}
-        </div>
-      </div>
+      <div className="relative mx-auto max-w-7xl">
+        {/* Header */}
+        <header className="mb-12 flex flex-col justify-between gap-8 border-b border-white/[0.1] pb-10 lg:flex-row lg:items-end">
+          <div>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.14] bg-white/[0.045] px-3.5 py-2">
+              <span className="h-2 w-2 rounded-full bg-white shadow-[0_0_14px_rgba(255,255,255,0.65)]" />
 
-      {/* Action Button */}
-      <div className="flex justify-center">
-        <button
-          onClick={handleCompare}
-          disabled={!fileA || !fileB || loading}
-          className="inline-flex h-10 px-6 items-center justify-center rounded-[8px] bg-primary text-primary-on text-sm font-medium font-sans hover:bg-[#f1f7fe] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <svg
-                className="animate-spin h-4 w-4 text-primary-on"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Comparing...
+              <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/60">
+                Comparison workspace
+              </span>
+            </div>
+
+            <h1 className="font-serif text-5xl leading-[0.92] tracking-[-0.06em] text-white sm:text-7xl">
+              Compare
+              <br />
+              <span className="text-white/40">the evidence.</span>
+            </h1>
+
+            <p className="mt-7 max-w-xl text-base leading-7 text-white/50">
+              Upload two images and compare their ELA heatmaps, manipulation
+              signals and forensic differences side by side.
+            </p>
+          </div>
+
+          <div className="max-w-xs lg:pb-1">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-white/35">
+              Comparison workflow
+            </p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-white/60">
+              <span className="font-mono text-white/35">01</span>
+              <span>Upload A</span>
+              <span className="text-white/25">→</span>
+              <span className="font-mono text-white/35">02</span>
+              <span>Upload B</span>
+              <span className="text-white/25">→</span>
+              <span className="font-mono text-white/35">03</span>
+              <span>Compare</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Upload cards */}
+        <section className="grid gap-5 md:grid-cols-2">
+          <div className="rounded-3xl border border-white/[0.14] bg-[#0a0a0c] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.3)] sm:p-7">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-white/35">
+                  Reference file
+                </p>
+                <h2 className="mt-2 text-xl font-medium text-white">
+                  Image A
+                </h2>
+              </div>
+
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.14] bg-white/[0.05] font-mono text-xs text-white/55">
+                A
+              </span>
+            </div>
+
+            {renderDropzone("A", fileA, previewA)}
+          </div>
+
+          <div className="rounded-3xl border border-white/[0.14] bg-[#0a0a0c] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.3)] sm:p-7">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-white/35">
+                  Comparison file
+                </p>
+                <h2 className="mt-2 text-xl font-medium text-white">
+                  Image B
+                </h2>
+              </div>
+
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.14] bg-white/[0.05] font-mono text-xs text-white/55">
+                B
+              </span>
+            </div>
+
+            {renderDropzone("B", fileB, previewB)}
+          </div>
+        </section>
+
+        {/* Compare action */}
+        <section className="mt-6 flex flex-col items-center justify-between gap-4 rounded-2xl border border-white/[0.1] bg-white/[0.025] p-4 sm:flex-row sm:p-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.12] bg-white/[0.05] font-mono text-xs text-white/60">
+              A/B
             </span>
-          ) : (
-            "Compare Images"
-          )}
-        </button>
+
+            <div>
+              <p className="text-sm font-medium text-white">
+                Ready to compare?
+              </p>
+              <p className="mt-1 text-xs text-white/40">
+                Both images are analyzed independently before comparison.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleCompare}
+            disabled={!fileA || !fileB || loading}
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white px-6 text-sm font-semibold text-black transition-all hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-[0_12px_35px_rgba(255,255,255,0.14)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0 disabled:hover:shadow-none sm:w-auto"
+          >
+            {loading ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/25 border-t-black" />
+                Comparing...
+              </>
+            ) : (
+              <>
+                Compare images
+                <span>→</span>
+              </>
+            )}
+          </button>
+        </section>
+
+        {/* Results */}
+        {resultA && resultB ? (
+          <section className="mt-12 space-y-6">
+            <div className="flex flex-col justify-between gap-4 border-b border-white/[0.1] pb-5 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-white/35">
+                  Comparison report
+                </p>
+                <h2 className="mt-2 text-2xl font-medium text-white">
+                  Side-by-side evidence
+                </h2>
+              </div>
+
+              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/[0.14] bg-white/[0.05] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-white/55">
+                <span className="h-2 w-2 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.55)]" />
+                Analysis complete
+              </span>
+            </div>
+
+            {/* Heatmaps */}
+            <div className="grid gap-5 md:grid-cols-2">
+              {[{ result: resultA, label: "Image A" }, { result: resultB, label: "Image B" }].map(({ result, label }) => (
+                <article
+                  key={label}
+                  className="rounded-3xl border border-white/[0.14] bg-[#0a0a0c] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.3)] sm:p-7"
+                >
+                  <div className="mb-5 flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/35">
+                        {label}
+                      </p>
+                      <h3 className="mt-2 truncate text-base font-medium text-white">
+                        {result.original_filename}
+                      </h3>
+                    </div>
+
+                    <span className="shrink-0 rounded-full border border-white/[0.14] px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-white/45">
+                      ELA map
+                    </span>
+                  </div>
+
+                  <div className="overflow-hidden rounded-2xl border border-white/[0.12] bg-black p-2">
+                    <img
+                      src={`http://localhost:8000${result.ela_heatmap_url}`}
+                      alt={`ELA Heatmap ${label}`}
+                      className="aspect-video w-full rounded-xl object-contain"
+                    />
+                  </div>
+
+                  {renderMetrics(result)}
+                </article>
+              ))}
+            </div>
+
+            {/* Summary */}
+            <div className="overflow-hidden rounded-3xl border border-white/[0.14] bg-[#0a0a0c] shadow-[0_25px_80px_rgba(0,0,0,0.3)]">
+              <div className="border-b border-white/[0.1] p-5 sm:p-7">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-white/35">
+                  Signal summary
+                </p>
+                <h3 className="mt-2 text-xl font-medium text-white">
+                  Comparison metrics
+                </h3>
+              </div>
+
+              <div className="overflow-x-auto p-5 sm:p-7">
+                <table className="w-full min-w-[560px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-white/[0.1]">
+                      <th className="pb-4 pr-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
+                        Metric
+                      </th>
+                      <th className="pb-4 pr-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
+                        Image A
+                      </th>
+                      <th className="pb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
+                        Image B
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-white/[0.08]">
+                    <tr>
+                      <td className="py-5 pr-5 text-white/45">Mean error</td>
+                      <td className="py-5 pr-5 font-mono text-white/80">
+                        {resultA.error_level_analysis.mean_error}
+                      </td>
+                      <td className="py-5 font-mono text-white/80">
+                        {resultB.error_level_analysis.mean_error}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td className="py-5 pr-5 text-white/45">JPEG ghost</td>
+                      <td className="py-5 pr-5">
+                        <div className="flex max-w-[260px] items-start gap-2">
+                          <span
+                            className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+                              resultA.error_level_analysis.jpeg_ghost.detected
+                                ? "bg-white/45"
+                                : "bg-white"
+                            }`}
+                          />
+                          <span className="text-white/70">
+                            {resultA.error_level_analysis.jpeg_ghost.message}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-5">
+                        <div className="flex max-w-[260px] items-start gap-2">
+                          <span
+                            className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+                              resultB.error_level_analysis.jpeg_ghost.detected
+                                ? "bg-white/45"
+                                : "bg-white"
+                            }`}
+                          />
+                          <span className="text-white/70">
+                            {resultB.error_level_analysis.jpeg_ghost.message}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="mt-10 flex min-h-[260px] flex-col items-center justify-center rounded-3xl border border-white/[0.1] bg-[#050505] px-6 text-center">
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/[0.14]">
+              <div className="absolute inset-2 rounded-full border border-dashed border-white/[0.18]" />
+              <div className="h-2.5 w-2.5 rounded-full bg-white/75 shadow-[0_0_18px_rgba(255,255,255,0.7)]" />
+            </div>
+
+            <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">
+              Awaiting comparison
+            </p>
+
+            <h2 className="mt-3 text-xl font-medium text-white">
+              Your comparison will appear here
+            </h2>
+
+            <p className="mt-2 max-w-md text-sm leading-6 text-white/40">
+              Upload Image A and Image B to compare their forensic signals side
+              by side.
+            </p>
+          </section>
+        )}
       </div>
-
-      {/* Results Section */}
-      {resultA && resultB && (
-        <div className="mt-12 space-y-8">
-          {/* Side-by-side ELA Heatmaps */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-surface-card border border-hairline-strong rounded-[12px] p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-ink font-medium">{resultA.original_filename}</span>
-                <span className="text-mute text-xs">Image A</span>
-              </div>
-              <img
-                src={"http://localhost:8000" + resultA.ela_heatmap_url}
-                alt="ELA Heatmap A"
-                className="w-full rounded-md border border-hairline"
-              />
-              {renderMetrics(resultA, "A")}
-            </div>
-            <div className="bg-surface-card border border-hairline-strong rounded-[12px] p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-ink font-medium">{resultB.original_filename}</span>
-                <span className="text-mute text-xs">Image B</span>
-              </div>
-              <img
-                src={"http://localhost:8000" + resultB.ela_heatmap_url}
-                alt="ELA Heatmap B"
-                className="w-full rounded-md border border-hairline"
-              />
-              {renderMetrics(resultB, "B")}
-            </div>
-          </div>
-
-          {/* Comparison Summary Table */}
-          <div className="bg-surface-card border border-hairline-strong rounded-[12px] p-6 overflow-x-auto">
-            <h3 className="font-display text-lg mb-4">Comparison Summary</h3>
-            <table className="w-full text-sm text-left">
-              <thead className="text-mute border-b border-hairline">
-                <tr>
-                  <th className="py-2 pr-4">Metric</th>
-                  <th className="py-2 pr-4">Image A</th>
-                  <th className="py-2 pr-4">Image B</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-hairline">
-                <tr>
-                  <td className="py-2 pr-4">Mean Error</td>
-                  <td className="py-2 pr-4 font-mono">
-                    {resultA.error_level_analysis.mean_error}
-                  </td>
-                  <td className="py-2 pr-4 font-mono">
-                    {resultB.error_level_analysis.mean_error}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2 pr-4">JPEG Ghost</td>
-                  <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-block w-1.5 h-1.5 rounded-full ${
-                          resultA.error_level_analysis.jpeg_ghost.detected
-                            ? "bg-accent-yellow"
-                            : "bg-accent-green"
-                        }`}
-                      />
-                      <span className="text-body">
-                        {resultA.error_level_analysis.jpeg_ghost.message}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-block w-1.5 h-1.5 rounded-full ${
-                          resultB.error_level_analysis.jpeg_ghost.detected
-                            ? "bg-accent-yellow"
-                            : "bg-accent-green"
-                        }`}
-                      />
-                      <span className="text-body">
-                        {resultB.error_level_analysis.jpeg_ghost.message}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
